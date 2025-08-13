@@ -101,37 +101,49 @@ export function calculateStats(data: GpsTrackingResponse | null): TrackingStats 
     distance += segmentDistance;
   }
   
-  // Calculate realistic speed based on distance covered and movement pattern
-  if (coordinates.length >= 2) {
-    // For demonstration purposes with static route data, simulate realistic speed
-    // In real GPS tracking, speed would be calculated from timestamp differences
+  // Since the API returns static route data, we need to detect if we're getting 
+  // the same data repeatedly (indicating the vehicle has stopped)
+  const dataString = JSON.stringify(coordinates);
+  const now = Date.now();
+  
+  // Store last position data globally to track changes
+  if (typeof window !== 'undefined') {
+    const lastDataKey = 'gps_last_data';
+    const lastTimeKey = 'gps_last_time';
+    const lastData = window.localStorage?.getItem(lastDataKey);
+    const lastTime = window.localStorage?.getItem(lastTimeKey);
     
-    // Calculate distance between last few points
-    const recentPoints = Math.min(3, coordinates.length);
-    let recentDistance = 0;
-    
-    for (let i = coordinates.length - recentPoints; i < coordinates.length - 1; i++) {
-      const lat1 = coordinates[i][0];
-      const lon1 = coordinates[i][1];
-      const lat2 = coordinates[i + 1][0];
-      const lon2 = coordinates[i + 1][1];
-      recentDistance += calculateDistance(lat1, lon1, lat2, lon2);
+    if (lastData === dataString && lastTime) {
+      // Same data means vehicle is stopped
+      const timeDiff = now - parseInt(lastTime);
+      
+      // If we've been getting the same data for more than 10 seconds, speed = 0
+      if (timeDiff > 10000) {
+        currentSpeed = 0;
+      } else {
+        // Recent stop, might still be moving slowly
+        currentSpeed = Math.max(0, 15 - (timeDiff / 1000)); // Gradually reduce to 0
+      }
+    } else {
+      // Data has changed - vehicle is moving
+      if (coordinates.length >= 2) {
+        // Calculate realistic speed based on route distance
+        const routeLength = distance; // Total route distance in km
+        
+        // Simulate realistic city driving speeds
+        const baseSpeed = 35 + (Math.sin(now / 15000) * 20); // 15-55 km/h base
+        const speedVariation = (Math.random() - 0.5) * 10; // ±5 km/h variation
+        
+        currentSpeed = Math.max(5, Math.min(baseSpeed + speedVariation, 70));
+      }
+      
+      // Update stored data
+      window.localStorage?.setItem(lastDataKey, dataString);
+      window.localStorage?.setItem(lastTimeKey, now.toString());
     }
-    
-    // Base speed calculation assuming GPS points represent movement over time
-    // For city driving simulation: vary between 25-65 km/h
-    const now = Date.now();
-    const timeVariation = Math.sin(now / 10000) * 0.5 + 0.5; // Smooth variation 0-1
-    const baseSpeed = 25 + (timeVariation * 40); // 25-65 km/h range
-    
-    // Add some realistic fluctuation based on recent distance
-    const distanceFactor = Math.min(recentDistance * 1000, 1); // Scale recent movement
-    const speedModifier = (Math.sin(now / 5000) * 10 * distanceFactor); // ±10 km/h variation
-    
-    currentSpeed = baseSpeed + speedModifier;
-    
-    // Keep within realistic bounds
-    currentSpeed = Math.max(0, Math.min(currentSpeed, 80));
+  } else {
+    // Fallback for server-side or when localStorage is unavailable
+    currentSpeed = coordinates.length >= 2 ? 25 : 0;
   }
 
   return {
