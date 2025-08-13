@@ -33,12 +33,23 @@ export default function StatusPanel({ data, lastUpdate, connectionStatus }: Stat
           </span>
         </div>
         
+        {/* Speed Display */}
+        <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg p-3 border border-orange-100">
+          <div className="text-center">
+            <div className="text-3xl font-bold text-orange-600 mb-1" data-testid="text-current-speed">
+              {stats.currentSpeed.split(' ')[0]}
+            </div>
+            <div className="text-sm font-medium text-orange-700">km/h</div>
+            <div className="text-xs text-gray-600 mt-1">Current Speed</div>
+          </div>
+        </div>
+        
         <div className="grid grid-cols-2 gap-4">
           <div className="text-center">
             <div className="text-lg font-bold text-blue-600" data-testid="text-total-points">
               {stats.totalPoints}
             </div>
-            <div className="text-xs text-gray-500">Total Points</div>
+            <div className="text-xs text-gray-500">Points</div>
           </div>
           <div className="text-center">
             <div className="text-lg font-bold text-green-600" data-testid="text-distance">
