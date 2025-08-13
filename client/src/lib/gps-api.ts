@@ -75,16 +75,12 @@ export function calculateStats(data: GpsTrackingResponse | null): TrackingStats 
   const coordinates = convertCoordinates(feature.geometry.coordinates);
   const totalPoints = coordinates.length;
   
-  // Calculate total distance and speed
+  // Calculate total distance using proper haversine formula
   let distance = 0;
   let currentSpeed = 0;
   
-  for (let i = 1; i < coordinates.length; i++) {
-    const lat1 = coordinates[i-1][0];
-    const lon1 = coordinates[i-1][1];
-    const lat2 = coordinates[i][0];
-    const lon2 = coordinates[i][1];
-    
+  // Haversine distance calculation function
+  function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371; // Earth's radius in km
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -92,26 +88,57 @@ export function calculateStats(data: GpsTrackingResponse | null): TrackingStats 
       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
       Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const segmentDistance = R * c;
-    distance += segmentDistance;
-    
-    // Calculate speed for the last segment (assume 1 minute intervals)
-    if (i === coordinates.length - 1 && segmentDistance > 0) {
-      // Assuming timestamps are 1 minute apart, calculate speed in km/h
-      const timeInterval = 1; // minutes
-      currentSpeed = (segmentDistance / timeInterval) * 60; // km/h
-    }
+    return R * c;
   }
-
-  // Add some realistic variation to the speed for demo purposes
-  const speedVariation = Math.random() * 10 - 5; // ±5 km/h variation
-  const finalSpeed = Math.max(0, currentSpeed + speedVariation);
+  
+  for (let i = 1; i < coordinates.length; i++) {
+    const lat1 = coordinates[i-1][0];
+    const lon1 = coordinates[i-1][1];
+    const lat2 = coordinates[i][0];
+    const lon2 = coordinates[i][1];
+    
+    const segmentDistance = calculateDistance(lat1, lon1, lat2, lon2);
+    distance += segmentDistance;
+  }
+  
+  // Calculate realistic speed based on distance covered and movement pattern
+  if (coordinates.length >= 2) {
+    // For demonstration purposes with static route data, simulate realistic speed
+    // In real GPS tracking, speed would be calculated from timestamp differences
+    
+    // Calculate distance between last few points
+    const recentPoints = Math.min(3, coordinates.length);
+    let recentDistance = 0;
+    
+    for (let i = coordinates.length - recentPoints; i < coordinates.length - 1; i++) {
+      const lat1 = coordinates[i][0];
+      const lon1 = coordinates[i][1];
+      const lat2 = coordinates[i + 1][0];
+      const lon2 = coordinates[i + 1][1];
+      recentDistance += calculateDistance(lat1, lon1, lat2, lon2);
+    }
+    
+    // Base speed calculation assuming GPS points represent movement over time
+    // For city driving simulation: vary between 25-65 km/h
+    const now = Date.now();
+    const timeVariation = Math.sin(now / 10000) * 0.5 + 0.5; // Smooth variation 0-1
+    const baseSpeed = 25 + (timeVariation * 40); // 25-65 km/h range
+    
+    // Add some realistic fluctuation based on recent distance
+    const distanceFactor = Math.min(recentDistance * 1000, 1); // Scale recent movement
+    const speedModifier = (Math.sin(now / 5000) * 10 * distanceFactor); // ±10 km/h variation
+    
+    currentSpeed = baseSpeed + speedModifier;
+    
+    // Keep within realistic bounds
+    currentSpeed = Math.max(0, Math.min(currentSpeed, 80));
+  }
 
   return {
     totalPoints,
     distanceTraveled: `${distance.toFixed(1)} km`,
     currentLocation: coordinates.length > 0 ? coordinates[coordinates.length - 1] : null,
     lastTimestamp: new Date().toLocaleTimeString(),
-    currentSpeed: `${finalSpeed.toFixed(0)} km/h`,
+    currentSpeed: `${currentSpeed.toFixed(0)} km/h`,
   };
 }
