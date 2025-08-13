@@ -35,32 +35,32 @@ export default function GpsTracker() {
     <div className="bg-gray-50 font-sans overflow-hidden h-screen">
       {/* App Header */}
       <header className="absolute top-0 left-0 right-0 z-[1000] bg-white shadow-sm border-b border-gray-200">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center space-x-3">
+        <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3">
+          <div className="flex items-center space-x-2 sm:space-x-3">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <MapPin className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-gray-900" data-testid="title-app">
+              <h1 className="text-base sm:text-lg font-semibold text-gray-900" data-testid="title-app">
                 GPS Tracker
               </h1>
-              <p className="text-xs text-gray-500">Real-time Vehicle Monitoring</p>
+              <p className="text-xs text-gray-500 hidden sm:block">Real-time Vehicle Monitoring</p>
             </div>
           </div>
           
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2" data-testid="connection-status">
+          <div className="flex items-center space-x-2 sm:space-x-4">
+            <div className="flex items-center space-x-1 sm:space-x-2" data-testid="connection-status">
               <div className={`w-2 h-2 rounded-full ${
                 connectionStatus === 'connected' 
                   ? 'bg-green-500 animate-pulse' 
                   : 'bg-red-500'
               }`}></div>
-              <span className="text-sm font-medium text-gray-700">
-                {connectionStatus === 'connected' ? 'Connected' : 'Connection Error'}
+              <span className="text-xs sm:text-sm font-medium text-gray-700">
+                {connectionStatus === 'connected' ? 'Connected' : 'Error'}
               </span>
             </div>
             
-            <div className="text-right">
+            <div className="text-right hidden sm:block">
               <p className="text-xs text-gray-500">Device ID</p>
               <p className="text-sm font-semibold text-gray-900" data-testid="text-device-id">
                 CAR01
@@ -79,7 +79,7 @@ export default function GpsTracker() {
       )}
 
       {/* Map Container */}
-      <main className="h-screen pt-16">
+      <main className="h-screen pt-14 sm:pt-16">
         <LeafletMap 
           data={data} 
           isLoading={isLoading}
