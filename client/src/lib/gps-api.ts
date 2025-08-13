@@ -18,6 +18,7 @@ export interface TrackingStats {
   currentLocation: [number, number] | null;
   lastTimestamp: string;
   currentSpeed: string;
+  currentAddress: string;
 }
 
 export async function fetchTrackingData(fastApiBase?: string): Promise<GpsTrackingResponse> {
@@ -50,6 +51,35 @@ export function convertCoordinates(coordinates: number[][]): [number, number][] 
   return coordinates.map(coord => [coord[1], coord[0]] as [number, number]);
 }
 
+// Function to fetch address from coordinates using Nominatim API
+export async function fetchAddress(lat: number, lon: number): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+      {
+        headers: {
+          'User-Agent': 'GPS-Tracker-App/1.0'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data && data.display_name) {
+      return data.display_name;
+    }
+    
+    return 'Address not found';
+  } catch (error) {
+    console.error('Error fetching address:', error);
+    return 'Unable to fetch address';
+  }
+}
+
 export function calculateStats(data: GpsTrackingResponse | null): TrackingStats {
   if (!data || !data.features || data.features.length === 0) {
     return {
@@ -58,6 +88,7 @@ export function calculateStats(data: GpsTrackingResponse | null): TrackingStats 
       currentLocation: null,
       lastTimestamp: new Date().toLocaleTimeString(),
       currentSpeed: '0 km/h',
+      currentAddress: 'No GPS data',
     };
   }
 
@@ -69,6 +100,7 @@ export function calculateStats(data: GpsTrackingResponse | null): TrackingStats 
       currentLocation: null,
       lastTimestamp: new Date().toLocaleTimeString(),
       currentSpeed: '0 km/h',
+      currentAddress: 'No route data',
     };
   }
 
@@ -152,5 +184,6 @@ export function calculateStats(data: GpsTrackingResponse | null): TrackingStats 
     currentLocation: coordinates.length > 0 ? coordinates[coordinates.length - 1] : null,
     lastTimestamp: new Date().toLocaleTimeString(),
     currentSpeed: `${currentSpeed.toFixed(0)} km/h`,
+    currentAddress: 'Loading address...',
   };
 }

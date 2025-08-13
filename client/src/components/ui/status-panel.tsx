@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { GpsTrackingResponse } from "@/lib/gps-api";
 import { calculateStats } from "@/lib/gps-api";
+import { useAddressLookup } from "@/hooks/use-address-lookup";
 
 interface StatusPanelProps {
   data: GpsTrackingResponse | null | undefined;
@@ -11,6 +12,7 @@ interface StatusPanelProps {
 export default function StatusPanel({ data, lastUpdate, connectionStatus }: StatusPanelProps) {
   const [secondsAgo, setSecondsAgo] = useState(0);
   const stats = calculateStats(data || null);
+  const { address, isLoading: addressLoading } = useAddressLookup(stats.currentLocation);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -72,7 +74,18 @@ export default function StatusPanel({ data, lastUpdate, connectionStatus }: Stat
             </div>
           </div>
           
-          <div className="mt-2 space-y-1">
+          <div className="mt-2 space-y-2">
+            <div className="text-xs text-gray-500">Current Address:</div>
+            <div className="text-xs text-gray-900 break-words" data-testid="text-current-address">
+              {addressLoading ? (
+                <div className="flex items-center space-x-1">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                  <span>Loading address...</span>
+                </div>
+              ) : (
+                address
+              )}
+            </div>
             <div className="flex justify-between text-xs">
               <span className="text-gray-500">Lat:</span>
               <span className="font-mono text-gray-900" data-testid="text-latitude">
