@@ -23,7 +23,7 @@ export default function ServerConfigPanel({ onServerChange, currentServer }: Ser
   };
 
   return (
-    <div className="fixed bottom-6 left-6 z-[1000]">
+    <div className="fixed top-4 right-4 z-[1000]">
       {!isOpen ? (
         <Button
           onClick={() => setIsOpen(true)}

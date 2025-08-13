@@ -24,7 +24,7 @@ export default function StatusPanel({ data, lastUpdate, connectionStatus }: Stat
   }, [lastUpdate]);
 
   return (
-    <div className="fixed bottom-6 left-80 bg-white rounded-xl shadow-lg border border-gray-200 p-4 z-[1000] min-w-[280px]">
+    <div className="fixed bottom-6 left-6 bg-white rounded-xl shadow-lg border border-gray-200 p-4 z-[1000] min-w-[280px]">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-900">Tracking Status</h3>
