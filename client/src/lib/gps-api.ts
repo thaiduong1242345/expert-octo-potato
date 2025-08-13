@@ -19,15 +19,21 @@ export interface TrackingStats {
   lastTimestamp: string;
 }
 
-export async function fetchTrackingData(): Promise<GpsTrackingResponse> {
+export async function fetchTrackingData(fastApiBase?: string): Promise<GpsTrackingResponse> {
   const timestamp = Date.now();
+  const headers: Record<string, string> = {
+    'Cache-Control': 'no-cache',
+  };
+  
+  if (fastApiBase) {
+    headers['X-FastAPI-Base'] = fastApiBase;
+  }
+  
   const response = await fetch(
     `/api/track?device_id=car01&start=0&end=9999999999999&format=geojson&_cb=${timestamp}`,
     {
       method: 'GET',
-      headers: {
-        'Cache-Control': 'no-cache',
-      },
+      headers,
     }
   );
 

@@ -4,10 +4,12 @@ import LeafletMap from "@/components/map/leaflet-map";
 import ErrorBanner from "@/components/ui/error-banner";
 import StatusPanel from "@/components/ui/status-panel";
 import LegendPanel from "@/components/ui/legend-panel";
+import ServerConfigPanel from "@/components/ui/server-config-panel";
 import { MapPin } from "lucide-react";
 
 export default function GpsTracker() {
-  const { data, error, isLoading, lastUpdate } = useGpsTracking();
+  const [fastApiBase, setFastApiBase] = useState('http://3.7.100.109:55575');
+  const { data, error, isLoading, lastUpdate } = useGpsTracking(fastApiBase);
   const [showError, setShowError] = useState(false);
 
   useEffect(() => {
@@ -19,6 +21,10 @@ export default function GpsTracker() {
   }, [error]);
 
   const connectionStatus = error ? 'error' : 'connected';
+
+  const handleServerChange = (newServer: string) => {
+    setFastApiBase(newServer);
+  };
 
   return (
     <div className="bg-gray-50 font-sans overflow-hidden h-screen">
@@ -75,6 +81,12 @@ export default function GpsTracker() {
           error={error}
         />
       </main>
+
+      {/* Server Config Panel */}
+      <ServerConfigPanel 
+        onServerChange={handleServerChange}
+        currentServer={fastApiBase}
+      />
 
       {/* Status Panel */}
       <StatusPanel 
