@@ -3,7 +3,7 @@ import { useGpsTracking } from "@/hooks/use-gps-tracking";
 import LeafletMap from "@/components/map/leaflet-map";
 import ErrorBanner from "@/components/ui/error-banner";
 import StatusPanel from "@/components/ui/status-panel";
-import LegendPanel from "@/components/ui/legend-panel";
+
 import ServerConfigPanel from "@/components/ui/server-config-panel";
 import { MapPin } from "lucide-react";
 
@@ -102,8 +102,7 @@ export default function GpsTracker() {
         connectionStatus={connectionStatus}
       />
 
-      {/* Legend Panel */}
-      <LegendPanel />
+
 
       {/* Loading Overlay */}
       {isLoading && (

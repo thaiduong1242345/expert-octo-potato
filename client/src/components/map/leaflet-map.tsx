@@ -100,34 +100,30 @@ export default function LeafletMap({ data, isLoading, error }: LeafletMapProps) 
     }).addTo(mapInstanceRef.current);
     markersRef.current.push(startMarker);
 
-    // Add end marker (red) if different from start
+    // Add live position marker at the end point (blue, pulsing)
     if (coordinates.length > 1) {
-      const endPoint = coordinates[coordinates.length - 1];
-      const endMarker = L.circleMarker(endPoint, {
+      const livePoint = coordinates[coordinates.length - 1];
+      const liveMarker = L.circleMarker(livePoint, {
         color: 'white',
-        fillColor: '#EF4444',
+        fillColor: '#2563EB',
         fillOpacity: 1,
         weight: 3,
-        radius: 8
+        radius: 10,
+        interactive: false // Prevent interaction issues
       }).addTo(mapInstanceRef.current);
-      markersRef.current.push(endMarker);
+      
+      // Add pulsing animation class with proper error handling
+      setTimeout(() => {
+        if (liveMarker._path) {
+          liveMarker._path.classList.add('animate-pulse');
+          // Fix positioning by ensuring the marker stays in place
+          liveMarker._path.style.pointerEvents = 'none';
+          liveMarker._path.style.transformOrigin = 'center';
+        }
+      }, 100);
+      
+      markersRef.current.push(liveMarker);
     }
-
-    // Add live marker at last position (blue, pulsing)
-    const livePoint = coordinates[coordinates.length - 1];
-    const liveMarker = L.circleMarker(livePoint, {
-      color: 'white',
-      fillColor: '#2563EB',
-      fillOpacity: 1,
-      weight: 3,
-      radius: 10
-    }).addTo(mapInstanceRef.current);
-    
-    // Add pulsing animation class
-    if (liveMarker._path) {
-      liveMarker._path.classList.add('animate-pulse');
-    }
-    markersRef.current.push(liveMarker);
 
     // Fit bounds only on first load
     if (isFirstLoad && polylineRef.current) {

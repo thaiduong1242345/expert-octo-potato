@@ -168,3 +168,14 @@
 .animate-pulse-slow {
   animation: pulse-slow 3s ease-in-out infinite;
 }
+
+/* Leaflet map marker fixes for positioning */
+.leaflet-container .animate-pulse path {
+  transform-origin: center center !important;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.leaflet-container svg path.animate-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+}
