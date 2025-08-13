@@ -2,13 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { fetchTrackingData, type GpsTrackingResponse } from "@/lib/gps-api";
 
-export function useGpsTracking(fastApiBase?: string) {
+export function useGpsTracking(fastApiBase?: string, delay: number = 2000) {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   const { data, error, isLoading, refetch } = useQuery<GpsTrackingResponse>({
-    queryKey: ['/api/track', fastApiBase],
+    queryKey: ['/api/track', fastApiBase, delay],
     queryFn: () => fetchTrackingData(fastApiBase),
-    refetchInterval: 2000, // Refetch every 2 seconds
+    refetchInterval: delay, // Use configurable delay
     staleTime: 0, // Always consider data stale
     gcTime: 0, // Don't cache data
     retry: 3,

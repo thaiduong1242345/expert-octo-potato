@@ -9,7 +9,8 @@ import { MapPin } from "lucide-react";
 
 export default function GpsTracker() {
   const [fastApiBase, setFastApiBase] = useState('http://3.7.100.109:55575');
-  const { data, error, isLoading, lastUpdate } = useGpsTracking(fastApiBase);
+  const [requestDelay, setRequestDelay] = useState(2000);
+  const { data, error, isLoading, lastUpdate } = useGpsTracking(fastApiBase, requestDelay);
   const [showError, setShowError] = useState(false);
 
   useEffect(() => {
@@ -24,6 +25,10 @@ export default function GpsTracker() {
 
   const handleServerChange = (newServer: string) => {
     setFastApiBase(newServer);
+  };
+
+  const handleDelayChange = (newDelay: number) => {
+    setRequestDelay(newDelay);
   };
 
   return (
@@ -85,7 +90,9 @@ export default function GpsTracker() {
       {/* Server Config Panel */}
       <ServerConfigPanel 
         onServerChange={handleServerChange}
+        onDelayChange={handleDelayChange}
         currentServer={fastApiBase}
+        currentDelay={requestDelay}
       />
 
       {/* Status Panel */}
