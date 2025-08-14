@@ -84,14 +84,33 @@ export default function EnhancedStatusPanel({
         // Handle player ready
         player.ready(() => {
           setIsVideoLoading(false);
-          player.play().catch(() => {
-            setVideoError("Stream not available. Check RTMP server configuration.");
-          });
+          if (player) {
+            player.play().catch((playError) => {
+              console.error('Play error:', playError);
+              if (playError.name === 'NotAllowedError') {
+                setVideoError("Autoplay blocked by browser. Click play button to start stream.");
+              } else if (playError.message.includes('CORS')) {
+                setVideoError("Stream blocked by CORS policy. Configure server headers.");
+              } else {
+                setVideoError("Stream not available. Check RTMP server configuration.");
+              }
+            });
+          }
         });
 
         // Handle errors
         player.on('error', () => {
-          setVideoError("Failed to load video stream. Verify RTMP server is running and accessible.");
+          const error = player.error();
+          let errorMessage = "Failed to load video stream.";
+          
+          if (error && error.code === 4) {
+            // Media source not supported - likely mixed content or CORS issue
+            errorMessage = "Stream blocked by browser security. Ensure RTMP server supports HTTPS or use HTTP site.";
+          } else {
+            errorMessage = "Failed to load video stream. Verify RTMP server is running and accessible.";
+          }
+          
+          setVideoError(errorMessage);
           setIsVideoLoading(false);
         });
 
@@ -103,14 +122,14 @@ export default function EnhancedStatusPanel({
   };
 
   const convertRtmpToHls = (rtmpUrl: string): string => {
-    // Convert RTMP URL to HLS for web playback
-    // Extract server and stream key from RTMP URL
+    // Convert RTMP URL to HLS for web playback via backend proxy
+    // This avoids mixed-content issues by proxying through our server
     const urlParts = rtmpUrl.replace('rtmp://', '').split('/');
     const server = urlParts[0];
     const streamKey = urlParts.slice(1).join('/') || 'stream';
     
-    // Return HLS URL - assumes media server converts RTMP to HLS
-    return `http://${server.replace(':1935', ':8080')}/hls/${streamKey}.m3u8`;
+    // Use backend proxy to avoid mixed-content blocking
+    return `/api/stream-proxy?server=${encodeURIComponent(server)}&stream=${encodeURIComponent(streamKey)}`;
   };
 
   // Cleanup player on unmount
@@ -198,17 +217,22 @@ export default function EnhancedStatusPanel({
                 </div>
                 
                 <div className="bg-black rounded-lg aspect-video relative overflow-hidden mb-3">
-                  {!videoError && !isVideoLoading ? (
+                  {!videoError && !isVideoLoading && !playerInitialized ? (
                     <div className="absolute inset-0 flex items-center justify-center z-10">
-                      <Button
-                        onClick={handleVideoLoad}
-                        variant="outline"
-                        size="sm"
-                        className="bg-white/90 hover:bg-white"
-                      >
-                        <Play className="w-4 h-4 mr-2" />
-                        Load Stream
-                      </Button>
+                      <div className="text-center">
+                        <Button
+                          onClick={handleVideoLoad}
+                          variant="outline"
+                          size="sm"
+                          className="bg-white/90 hover:bg-white mb-2"
+                        >
+                          <Play className="w-4 h-4 mr-2" />
+                          Load RTMP Stream
+                        </Button>
+                        <p className="text-xs text-white/70">
+                          Converting RTMP to HLS for web playback
+                        </p>
+                      </div>
                     </div>
                   ) : isVideoLoading ? (
                     <div className="absolute inset-0 flex items-center justify-center z-10">

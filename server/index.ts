@@ -133,6 +133,49 @@ app.get('/api/track', async (req: Request, res: Response) => {
   }
 });
 
+// Stream proxy endpoint to avoid mixed-content issues
+app.get('/api/stream-proxy', async (req: Request, res: Response) => {
+  const { server, stream } = req.query;
+  
+  if (!server || !stream) {
+    return res.status(400).json({ error: 'Missing server or stream parameter' });
+  }
+  
+  try {
+    // Convert to HLS URL
+    const hlsUrl = `http://${server.toString().replace(':1935', ':8080')}/hls/${stream}.m3u8`;
+    
+    log(`Proxying HLS stream from: ${hlsUrl}`);
+    
+    const response = await fetch(hlsUrl, {
+      signal: AbortSignal.timeout(10000) // 10 second timeout
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HLS server responded with ${response.status}: ${response.statusText}`);
+    }
+    
+    // Forward the response
+    res.set({
+      'Content-Type': response.headers.get('Content-Type') || 'application/x-mpegURL',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Cache-Control': 'no-cache'
+    });
+    
+    const body = await response.text();
+    res.send(body);
+    
+  } catch (error) {
+    log(`Stream proxy error: ${error}`);
+    res.status(503).json({ 
+      error: 'HLS stream not available',
+      message: 'RTMP server may not be configured for HLS output'
+    });
+  }
+});
+
 // Error handling middleware
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   const status = err.status || err.statusCode || 500;
