@@ -10,7 +10,7 @@ export default function GpsTracker() {
   const [fastApiBase, setFastApiBase] = useState('http://3.7.100.109:55575');
   const [requestDelay, setRequestDelay] = useState(2000);
   const [rtmpServer, setRtmpServer] = useState('rtmp://localhost:1935/live');
-  const { data, error, isLoading, lastUpdate } = useGpsTracking(fastApiBase, requestDelay);
+  const { data, error, isLoading, lastUpdate, isUsingMockData } = useGpsTracking(fastApiBase, requestDelay);
   const [showError, setShowError] = useState(false);
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export default function GpsTracker() {
     }
   }, [error]);
 
-  const connectionStatus = error ? 'error' : 'connected';
+  const connectionStatus = error ? 'error' : (isUsingMockData ? 'mock' : 'connected');
 
   const handleServerChange = (newServer: string) => {
     setFastApiBase(newServer);
@@ -57,10 +57,13 @@ export default function GpsTracker() {
               <div className={`w-2 h-2 rounded-full ${
                 connectionStatus === 'connected' 
                   ? 'bg-green-500 animate-pulse' 
+                  : connectionStatus === 'mock'
+                  ? 'bg-yellow-500 animate-pulse'
                   : 'bg-red-500'
               }`}></div>
               <span className="text-xs sm:text-sm font-medium text-gray-700">
-                {connectionStatus === 'connected' ? 'Connected' : 'Error'}
+                {connectionStatus === 'connected' ? 'Live GPS' : 
+                 connectionStatus === 'mock' ? 'GPS Down' : 'Error'}
               </span>
             </div>
             

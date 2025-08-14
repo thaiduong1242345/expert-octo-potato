@@ -21,7 +21,12 @@ export interface TrackingStats {
   currentAddress: string;
 }
 
-export async function fetchTrackingData(fastApiBase?: string): Promise<GpsTrackingResponse> {
+export interface GpsApiResponse {
+  data: GpsTrackingResponse;
+  isUsingMockData: boolean;
+}
+
+export async function fetchTrackingData(fastApiBase?: string): Promise<GpsApiResponse> {
   const timestamp = Date.now();
   const headers: Record<string, string> = {
     'Cache-Control': 'no-cache',
@@ -43,7 +48,13 @@ export async function fetchTrackingData(fastApiBase?: string): Promise<GpsTracki
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  const isUsingMockData = response.headers.get('X-Data-Source') === 'mock';
+
+  return {
+    data,
+    isUsingMockData
+  };
 }
 
 export function convertCoordinates(coordinates: number[][]): [number, number][] {

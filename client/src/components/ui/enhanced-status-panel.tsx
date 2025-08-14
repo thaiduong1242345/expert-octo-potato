@@ -108,10 +108,15 @@ export default function EnhancedStatusPanel({
                     <span className="text-gray-600">GPS Status</span>
                     <div className="flex items-center space-x-2">
                       <div className={`w-2 h-2 rounded-full ${
-                        connectionStatus === 'connected' ? 'bg-blue-500 animate-pulse' : 'bg-red-500'
+                        connectionStatus === 'connected' 
+                          ? 'bg-green-500 animate-pulse' 
+                          : connectionStatus === 'mock'
+                          ? 'bg-yellow-500 animate-pulse'
+                          : 'bg-red-500'
                       }`}></div>
                       <span className="text-gray-900 font-medium" data-testid="text-current-location">
-                        {stats.currentLocation ? 'Live' : 'No Data'}
+                        {connectionStatus === 'connected' ? 'Live GPS' : 
+                         connectionStatus === 'mock' ? 'GPS Down' : 'Error'}
                       </span>
                     </div>
                   </div>

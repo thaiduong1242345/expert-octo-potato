@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { fetchTrackingData, type GpsTrackingResponse } from "@/lib/gps-api";
+import { fetchTrackingData, type GpsApiResponse, type GpsTrackingResponse } from "@/lib/gps-api";
 
 export function useGpsTracking(fastApiBase?: string, delay: number = 2000) {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [isUsingMockData, setIsUsingMockData] = useState(false);
 
-  const { data, error, isLoading, refetch } = useQuery<GpsTrackingResponse>({
+  const { data: apiResponse, error, isLoading, refetch } = useQuery<GpsApiResponse>({
     queryKey: ['/api/track', fastApiBase, delay],
     queryFn: () => fetchTrackingData(fastApiBase),
     refetchInterval: delay, // Use configurable delay
@@ -16,16 +17,18 @@ export function useGpsTracking(fastApiBase?: string, delay: number = 2000) {
   });
 
   useEffect(() => {
-    if (data) {
+    if (apiResponse) {
       setLastUpdate(new Date());
+      setIsUsingMockData(apiResponse.isUsingMockData);
     }
-  }, [data]);
+  }, [apiResponse]);
 
   return {
-    data,
+    data: apiResponse?.data,
     error,
     isLoading,
     lastUpdate,
+    isUsingMockData,
     refetch,
   };
 }
