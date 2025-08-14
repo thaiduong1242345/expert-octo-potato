@@ -3,7 +3,7 @@ import type { GpsTrackingResponse } from "@/lib/gps-api";
 import { calculateStats } from "@/lib/gps-api";
 import { useAddressLookup } from "@/hooks/use-address-lookup";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
-import { Play, AlertCircle, MapPin, Video } from "lucide-react";
+import { Play, AlertCircle, MapPin, Video, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface EnhancedStatusPanelProps {
@@ -22,7 +22,9 @@ export default function EnhancedStatusPanel({
   const [secondsAgo, setSecondsAgo] = useState(0);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isVideoLoading, setIsVideoLoading] = useState(false);
+  const [playerInitialized, setPlayerInitialized] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const playerRef = useRef<any>(null);
   const stats = calculateStats(data || null);
   const { address, isLoading: addressLoading } = useAddressLookup(stats.currentLocation);
 
@@ -38,38 +40,87 @@ export default function EnhancedStatusPanel({
   }, [lastUpdate]);
 
   const handleVideoLoad = async () => {
+    if (playerInitialized && playerRef.current) {
+      // If player already exists, dispose it first
+      playerRef.current.dispose();
+      setPlayerInitialized(false);
+      playerRef.current = null;
+    }
+
     setIsVideoLoading(true);
     setVideoError(null);
     
-    try {
-      // Check if RTMP server is accessible by testing the base URL
-      const rtmpBaseUrl = rtmpUrl.replace('rtmp://', 'http://').split('/')[0] + ':8080';
-      
-      // Try to fetch stream info or playlist
-      const response = await fetch(`${rtmpBaseUrl}/hls/stream.m3u8`, {
-        method: 'HEAD',
-        signal: AbortSignal.timeout(5000)
-      });
-      
-      if (response.ok) {
-        // RTMP server is running and providing HLS
-        setVideoError("RTMP server detected but video conversion not available. Configure media server with HLS output for web playback.");
-      } else {
-        throw new Error('RTMP server not accessible');
+    if (videoRef.current) {
+      try {
+        // Load Video.js dynamically
+        const { default: videojs } = await import('video.js');
+        
+        // Convert RTMP to HLS URL for web playback
+        const hlsUrl = convertRtmpToHls(rtmpUrl);
+        
+        // Initialize Video.js player
+        const player = videojs(videoRef.current, {
+          controls: true,
+          autoplay: false,
+          preload: 'auto',
+          width: '100%',
+          height: '100%',
+          sources: [{
+            src: hlsUrl,
+            type: 'application/x-mpegURL'
+          }],
+          html5: {
+            hls: {
+              enableLowInitialPlaylist: true,
+              smoothQualityChange: true,
+              overrideNative: true
+            }
+          }
+        });
+
+        playerRef.current = player;
+        setPlayerInitialized(true);
+
+        // Handle player ready
+        player.ready(() => {
+          setIsVideoLoading(false);
+          player.play().catch(() => {
+            setVideoError("Stream not available. Check RTMP server configuration.");
+          });
+        });
+
+        // Handle errors
+        player.on('error', () => {
+          setVideoError("Failed to load video stream. Verify RTMP server is running and accessible.");
+          setIsVideoLoading(false);
+        });
+
+      } catch (error) {
+        setVideoError("Failed to initialize video player. Check stream configuration.");
+        setIsVideoLoading(false);
       }
-    } catch (error) {
-      // RTMP server is not running or not accessible
-      setVideoError("RTMP server not responding. Please start your RTMP server and ensure it's configured for web streaming.");
-    } finally {
-      setIsVideoLoading(false);
     }
   };
 
   const convertRtmpToHls = (rtmpUrl: string): string => {
     // Convert RTMP URL to HLS for web playback
-    // This is a simplified conversion - in production you'd need a media server
-    return rtmpUrl.replace('rtmp://', 'http://').replace(':1935', ':8080') + '/playlist.m3u8';
+    // Extract server and stream key from RTMP URL
+    const urlParts = rtmpUrl.replace('rtmp://', '').split('/');
+    const server = urlParts[0];
+    const streamKey = urlParts.slice(1).join('/') || 'stream';
+    
+    // Return HLS URL - assumes media server converts RTMP to HLS
+    return `http://${server.replace(':1935', ':8080')}/hls/${streamKey}.m3u8`;
   };
+
+  // Cleanup player on unmount
+  useEffect(() => {
+    return () => {
+      if (playerRef.current) {
+        playerRef.current.dispose();
+      }
+    };
+  }, []);
 
   return (
     <div className="fixed bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-auto bg-white rounded-xl shadow-lg border border-gray-200 p-3 sm:p-4 z-[1000] sm:min-w-[320px] sm:max-w-[400px]">
@@ -148,31 +199,26 @@ export default function EnhancedStatusPanel({
                 
                 <div className="bg-black rounded-lg aspect-video relative overflow-hidden mb-3">
                   {!videoError && !isVideoLoading ? (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center">
-                        <Button
-                          onClick={handleVideoLoad}
-                          variant="outline"
-                          size="sm"
-                          className="bg-white/90 hover:bg-white mb-2"
-                        >
-                          <Play className="w-4 h-4 mr-2" />
-                          Test RTMP Server
-                        </Button>
-                        <p className="text-xs text-white/70">
-                          Check server status and connectivity
-                        </p>
-                      </div>
+                    <div className="absolute inset-0 flex items-center justify-center z-10">
+                      <Button
+                        onClick={handleVideoLoad}
+                        variant="outline"
+                        size="sm"
+                        className="bg-white/90 hover:bg-white"
+                      >
+                        <Play className="w-4 h-4 mr-2" />
+                        Load Stream
+                      </Button>
                     </div>
                   ) : isVideoLoading ? (
-                    <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center justify-center z-10">
                       <div className="text-white text-center">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto mb-2"></div>
-                        <p className="text-xs">Testing RTMP connection...</p>
+                        <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin" />
+                        <p className="text-xs">Loading stream...</p>
                       </div>
                     </div>
-                  ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-3">
+                  ) : videoError ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-3 z-10">
                       <AlertCircle className="w-6 h-6 mb-2 text-red-400" />
                       <p className="text-xs text-white text-center mb-3 leading-relaxed">
                         {videoError}
@@ -183,17 +229,20 @@ export default function EnhancedStatusPanel({
                         size="sm"
                         className="bg-white/90 hover:bg-white text-black"
                       >
-                        Test Again
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Retry
                       </Button>
                     </div>
-                  )}
+                  ) : null}
                   
-                  {/* Info overlay for RTMP limitations */}
-                  <div className="absolute top-2 right-2">
-                    <div className="bg-black/60 rounded px-2 py-1">
-                      <p className="text-xs text-white/80">RTMP</p>
-                    </div>
-                  </div>
+                  {/* Video.js player element */}
+                  <video
+                    ref={videoRef}
+                    className="video-js vjs-default-skin w-full h-full"
+                    controls
+                    preload="auto"
+                    data-setup="{}"
+                  />
                 </div>
                 
                 <div className="space-y-2">
@@ -207,17 +256,7 @@ export default function EnhancedStatusPanel({
                     {rtmpUrl}
                   </p>
                   
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
-                    <h5 className="text-xs font-medium text-blue-800 mb-1">RTMP Web Playback</h5>
-                    <p className="text-xs text-blue-700 mb-1">
-                      RTMP streams require conversion for web browsers:
-                    </p>
-                    <ul className="text-xs text-blue-600 space-y-0.5">
-                      <li>• Configure media server (nginx-rtmp, SRS, etc.)</li>
-                      <li>• Enable HLS/DASH output</li>
-                      <li>• Or use WebRTC for low latency</li>
-                    </ul>
-                  </div>
+
                 </div>
               </div>
             </CarouselItem>
