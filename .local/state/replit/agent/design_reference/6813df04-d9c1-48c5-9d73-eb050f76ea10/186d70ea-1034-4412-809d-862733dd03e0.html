@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Tracker - Real-time Vehicle Monitoring</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'system-ui', 'sans-serif']
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s ease-in-out infinite',
+                        'bounce-slow': 'bounce 2s ease-in-out infinite'
+                    }
+                }
+            }
+        };
+    </script>
+    
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Heroicons for UI icons -->
+    <script src="https://unpkg.com/@heroicons/react@2.0.18/24/outline/index.js" type="module"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+        
+        .leaflet-control-attribution {
+            font-size: 10px !important;
+            background: rgba(255, 255, 255, 0.8) !important;
+        }
+        
+        .custom-marker-start {
+            background: #10B981;
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        
+        .custom-marker-end {
+            background: #EF4444;
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        
+        .custom-marker-live {
+            background: #2563EB;
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+        
+        .status-dot-active {
+            background: #10B981;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .status-dot-error {
+            background: #EF4444;
+        }
+        
+        .polyline-route {
+            color: #2563EB;
+            weight: 4;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-inter overflow-hidden">
+    <!-- @COMPONENT: AppHeader -->
+    <header class="absolute top-0 left-0 right-0 z-[1000] bg-white shadow-sm border-b border-gray-200">
+        <div class="flex items-center justify-between px-4 py-3">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-semibold text-gray-900">GPS Tracker</h1>
+                    <p class="text-xs text-gray-500">Real-time Vehicle Monitoring</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+                <!-- @STATE: connectionStatus:string = 'connected' -->
+                <div class="flex items-center space-x-2" data-bind="connectionStatus">
+                    <div class="w-2 h-2 rounded-full status-dot-active"></div>
+                    <span class="text-sm font-medium text-gray-700">Connected</span>
+                </div>
+                
+                <div class="text-right">
+                    <p class="text-xs text-gray-500">Device ID</p>
+                    <p class="text-sm font-semibold text-gray-900" data-bind="deviceId">CAR01</p>
+                </div>
+            </div>
+        </div>
+    </header>
+    <!-- @END_COMPONENT: AppHeader -->
+
+    <!-- @COMPONENT: ErrorBanner -->
+    <div id="errorBanner" class="fixed top-16 left-4 right-4 z-[1001] bg-red-50 border border-red-200 rounded-lg p-4 shadow-lg hidden" data-mock="true">
+        <div class="flex items-start space-x-3">
+            <div class="flex-shrink-0">
+                <svg class="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-red-800">Connection Error</p>
+                <p class="text-sm text-red-700" data-bind="errorMessage">Failed to fetch tracking data. Retrying automatically...</p>
+            </div>
+            <button data-event="click:dismissError" class="flex-shrink-0 ml-4 text-red-400 hover:text-red-600 transition-colors">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: ErrorBanner -->
+
+    <!-- @COMPONENT: MapContainer -->
+    <main class="h-screen pt-16">
+        <div id="map" class="w-full h-full bg-gray-100"></div>
+    </main>
+    <!-- @END_COMPONENT: MapContainer -->
+
+    <!-- @COMPONENT: StatusPanel -->
+    <div class="fixed bottom-6 left-6 bg-white rounded-xl shadow-lg border border-gray-200 p-4 z-[1000] min-w-[280px]">
+        <div class="space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-900">Tracking Status</h3>
+                <!-- @STATE: lastUpdate:Date = new Date() -->
+                <span class="text-xs text-gray-500" data-bind="lastUpdate">2 seconds ago</span>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div class="text-center">
+                    <div class="text-lg font-bold text-blue-600" data-bind="totalPoints">127</div>
+                    <div class="text-xs text-gray-500">Total Points</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-lg font-bold text-green-600" data-bind="distanceTraveled">24.3 km</div>
+                    <div class="text-xs text-gray-500">Distance</div>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-100 pt-3">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-600">Last Position</span>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                        <span class="text-gray-900 font-medium" data-bind="currentLocation">Live</span>
+                    </div>
+                </div>
+                
+                <div class="mt-2 space-y-1">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-500">Lat:</span>
+                        <span class="font-mono text-gray-900" data-bind="latitude">37.7749</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-500">Lng:</span>
+                        <span class="font-mono text-gray-900" data-bind="longitude">-122.4194</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-500">Updated:</span>
+                        <span class="text-gray-900" data-bind="timestamp">14:23:45</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: StatusPanel -->
+
+    <!-- @COMPONENT: LegendPanel -->
+    <div class="fixed bottom-6 right-6 bg-white rounded-xl shadow-lg border border-gray-200 p-4 z-[1000]">
+        <h4 class="text-sm font-semibold text-gray-900 mb-3">Map Legend</h4>
+        <div class="space-y-2">
+            <div class="flex items-center space-x-2">
+                <div class="w-3 h-3 rounded-full bg-green-500 border-2 border-white shadow-sm"></div>
+                <span class="text-xs text-gray-600">Start Point</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <div class="w-3 h-3 rounded-full bg-red-500 border-2 border-white shadow-sm"></div>
+                <span class="text-xs text-gray-600">End Point</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <div class="w-3 h-3 rounded-full bg-blue-500 border-2 border-white shadow-sm animate-pulse-slow"></div>
+                <span class="text-xs text-gray-600">Live Position</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <div class="w-4 h-0.5 bg-blue-500 rounded"></div>
+                <span class="text-xs text-gray-600">Route Path</span>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: LegendPanel -->
+
+    <!-- @COMPONENT: LoadingOverlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-[1002] flex items-center justify-center" data-mock="true">
+        <div class="bg-white rounded-xl p-6 shadow-2xl">
+            <div class="flex items-center space-x-3">
+                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <span class="text-gray-900 font-medium">Loading tracking data...</span>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: LoadingOverlay -->
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // TODO: Implement real-time GPS tracking functionality with Express proxy
+        (function() {
+            // @STATE: map, polyline, markers, lastUpdate, isFirstLoad
+            let map;
+            let polyline;
+            let startMarker, endMarker, liveMarker;
+            let lastUpdate = null;
+            let isFirstLoad = true;
+            let errorBannerVisible = false;
+
+            // Initialize the map
+            function initMap() {
+                map = L.map('map').setView([37.7749, -122.4194], 13);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+
+                // Hide loading overlay after map is ready
+                setTimeout(() => {
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                }, 1500);
+            }
+
+            // @FUNCTIONALITY: Fetch tracking data from /api/track endpoint with cache busting
+            async function fetchTrackingData() {
+                try {
+                    const timestamp = Date.now();
+                    const response = await fetch(`/api/track?device_id=car01&start=0&end=9999999999999&format=geojson&_cb=${timestamp}`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    updateMap(data);
+                    updateStatus(data);
+                    hideErrorBanner();
+                    
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                    showErrorBanner(error.message);
+                    updateConnectionStatus('error');
+                }
+            }
+
+            // @FUNCTIONALITY: Update map with GeoJSON data, convert [lng,lat] to [lat,lng]
+            function updateMap(geojsonData) {
+                // TODO: Parse GeoJSON FeatureCollection and extract LineString coordinates
+                
+                // Mock coordinates for demonstration (in real implementation, extract from geojsonData)
+                const mockCoordinates = [
+                    [37.7749, -122.4194],
+                    [37.7849, -122.4094],
+                    [37.7949, -122.3994],
+                    [37.8049, -122.3894]
+                ];
+                
+                // Remove existing polyline and markers
+                if (polyline) map.removeLayer(polyline);
+                if (startMarker) map.removeLayer(startMarker);
+                if (endMarker) map.removeLayer(endMarker);
+                if (liveMarker) map.removeLayer(liveMarker);
+                
+                if (mockCoordinates.length > 0) {
+                    // Create polyline
+                    polyline = L.polyline(mockCoordinates, {
+                        color: '#2563EB',
+                        weight: 4,
+                        opacity: 0.8
+                    }).addTo(map);
+                    
+                    // Add start marker
+                    startMarker = L.circleMarker(mockCoordinates[0], {
+                        color: 'white',
+                        fillColor: '#10B981',
+                        fillOpacity: 1,
+                        weight: 3,
+                        radius: 8
+                    }).addTo(map);
+                    
+                    // Add end marker (if different from start)
+                    if (mockCoordinates.length > 1) {
+                        const endPoint = mockCoordinates[mockCoordinates.length - 1];
+                        endMarker = L.circleMarker(endPoint, {
+                            color: 'white',
+                            fillColor: '#EF4444',
+                            fillOpacity: 1,
+                            weight: 3,
+                            radius: 8
+                        }).addTo(map);
+                    }
+                    
+                    // Add live marker at last position
+                    const livePoint = mockCoordinates[mockCoordinates.length - 1];
+                    liveMarker = L.circleMarker(livePoint, {
+                        color: 'white',
+                        fillColor: '#2563EB',
+                        fillOpacity: 1,
+                        weight: 3,
+                        radius: 10,
+                        className: 'custom-marker-live'
+                    }).addTo(map);
+                    
+                    // Fit bounds only on first load
+                    if (isFirstLoad) {
+                        map.fitBounds(polyline.getBounds(), { padding: [20, 20] });
+                        isFirstLoad = false;
+                    }
+                }
+            }
+
+            // Update status panel with current data
+            function updateStatus(data) {
+                lastUpdate = new Date();
+                updateConnectionStatus('connected');
+                
+                // TODO: Update real status values from data
+                // For now, showing mock data for visual demonstration
+            }
+
+            function updateConnectionStatus(status) {
+                const statusDot = document.querySelector('.status-dot-active, .status-dot-error');
+                const statusText = statusDot?.parentElement.querySelector('span');
+                
+                if (status === 'connected') {
+                    statusDot?.classList.remove('status-dot-error');
+                    statusDot?.classList.add('status-dot-active');
+                    if (statusText) statusText.textContent = 'Connected';
+                } else {
+                    statusDot?.classList.remove('status-dot-active');
+                    statusDot?.classList.add('status-dot-error');
+                    if (statusText) statusText.textContent = 'Connection Error';
+                }
+            }
+
+            function showErrorBanner(message) {
+                const banner = document.getElementById('errorBanner');
+                const messageElement = banner.querySelector('[data-bind="errorMessage"]');
+                if (messageElement) messageElement.textContent = message;
+                banner.classList.remove('hidden');
+                errorBannerVisible = true;
+            }
+
+            function hideErrorBanner() {
+                if (errorBannerVisible) {
+                    document.getElementById('errorBanner').classList.add('hidden');
+                    errorBannerVisible = false;
+                }
+            }
+
+            // Event listeners
+            document.addEventListener('click', (e) => {
+                if (e.target.matches('[data-event*="dismissError"]')) {
+                    hideErrorBanner();
+                }
+            });
+
+            // Initialize application
+            initMap();
+            
+            // Start polling for data every 2 seconds
+            fetchTrackingData(); // Initial load
+            setInterval(fetchTrackingData, 2000);
+            
+            // Update timestamps periodically
+            setInterval(() => {
+                if (lastUpdate) {
+                    const secondsAgo = Math.floor((Date.now() - lastUpdate.getTime()) / 1000);
+                    const lastUpdateElement = document.querySelector('[data-bind="lastUpdate"]');
+                    if (lastUpdateElement) {
+                        lastUpdateElement.textContent = `${secondsAgo} seconds ago`;
+                    }
+                }
+            }, 1000);
+        })();
+    </script>
+</body>
+</html>
