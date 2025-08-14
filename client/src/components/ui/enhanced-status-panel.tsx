@@ -37,17 +37,31 @@ export default function EnhancedStatusPanel({
     return () => clearInterval(interval);
   }, [lastUpdate]);
 
-  const handleVideoLoad = () => {
+  const handleVideoLoad = async () => {
     setIsVideoLoading(true);
     setVideoError(null);
     
-    if (videoRef.current) {
-      // For RTMP streams, we'd typically use a library like hls.js or dash.js
-      // For demo purposes, we'll simulate loading and show error handling
-      setTimeout(() => {
-        setIsVideoLoading(false);
-        setVideoError("Unable to connect to RTMP stream. Please check server configuration.");
-      }, 2000);
+    try {
+      // Check if RTMP server is accessible by testing the base URL
+      const rtmpBaseUrl = rtmpUrl.replace('rtmp://', 'http://').split('/')[0] + ':8080';
+      
+      // Try to fetch stream info or playlist
+      const response = await fetch(`${rtmpBaseUrl}/hls/stream.m3u8`, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(5000)
+      });
+      
+      if (response.ok) {
+        // RTMP server is running and providing HLS
+        setVideoError("RTMP server detected but video conversion not available. Configure media server with HLS output for web playback.");
+      } else {
+        throw new Error('RTMP server not accessible');
+      }
+    } catch (error) {
+      // RTMP server is not running or not accessible
+      setVideoError("RTMP server not responding. Please start your RTMP server and ensure it's configured for web streaming.");
+    } finally {
+      setIsVideoLoading(false);
     }
   };
 
@@ -135,49 +149,51 @@ export default function EnhancedStatusPanel({
                 <div className="bg-black rounded-lg aspect-video relative overflow-hidden mb-3">
                   {!videoError && !isVideoLoading ? (
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <Button
-                        onClick={handleVideoLoad}
-                        variant="outline"
-                        size="sm"
-                        className="bg-white/90 hover:bg-white"
-                      >
-                        <Play className="w-4 h-4 mr-2" />
-                        Connect to Stream
-                      </Button>
+                      <div className="text-center">
+                        <Button
+                          onClick={handleVideoLoad}
+                          variant="outline"
+                          size="sm"
+                          className="bg-white/90 hover:bg-white mb-2"
+                        >
+                          <Play className="w-4 h-4 mr-2" />
+                          Test RTMP Server
+                        </Button>
+                        <p className="text-xs text-white/70">
+                          Check server status and connectivity
+                        </p>
+                      </div>
                     </div>
                   ) : isVideoLoading ? (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="text-white text-center">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mx-auto mb-2"></div>
-                        <p className="text-xs">Connecting...</p>
+                        <p className="text-xs">Testing RTMP connection...</p>
                       </div>
                     </div>
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center text-white p-3">
-                        <AlertCircle className="w-6 h-6 mx-auto mb-2 text-red-400" />
-                        <p className="text-xs mb-2">Stream Unavailable</p>
-                        <Button
-                          onClick={handleVideoLoad}
-                          variant="outline"
-                          size="sm"
-                          className="bg-white/90 hover:bg-white text-black"
-                        >
-                          Retry
-                        </Button>
-                      </div>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-3">
+                      <AlertCircle className="w-6 h-6 mb-2 text-red-400" />
+                      <p className="text-xs text-white text-center mb-3 leading-relaxed">
+                        {videoError}
+                      </p>
+                      <Button
+                        onClick={handleVideoLoad}
+                        variant="outline"
+                        size="sm"
+                        className="bg-white/90 hover:bg-white text-black"
+                      >
+                        Test Again
+                      </Button>
                     </div>
                   )}
                   
-                  {/* Hidden video element for RTMP stream */}
-                  <video
-                    ref={videoRef}
-                    className="w-full h-full object-cover"
-                    autoPlay
-                    muted
-                    playsInline
-                    style={{ display: 'none' }}
-                  />
+                  {/* Info overlay for RTMP limitations */}
+                  <div className="absolute top-2 right-2">
+                    <div className="bg-black/60 rounded px-2 py-1">
+                      <p className="text-xs text-white/80">RTMP</p>
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="space-y-2">
@@ -191,11 +207,17 @@ export default function EnhancedStatusPanel({
                     {rtmpUrl}
                   </p>
                   
-                  {videoError && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-2">
-                      <p className="text-xs text-red-700">{videoError}</p>
-                    </div>
-                  )}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                    <h5 className="text-xs font-medium text-blue-800 mb-1">RTMP Web Playback</h5>
+                    <p className="text-xs text-blue-700 mb-1">
+                      RTMP streams require conversion for web browsers:
+                    </p>
+                    <ul className="text-xs text-blue-600 space-y-0.5">
+                      <li>• Configure media server (nginx-rtmp, SRS, etc.)</li>
+                      <li>• Enable HLS/DASH output</li>
+                      <li>• Or use WebRTC for low latency</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </CarouselItem>
