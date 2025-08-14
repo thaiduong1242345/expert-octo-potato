@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { useGpsTracking } from "@/hooks/use-gps-tracking";
 import LeafletMap from "@/components/map/leaflet-map";
 import ErrorBanner from "@/components/ui/error-banner";
-import StatusPanel from "@/components/ui/status-panel";
-
+import EnhancedStatusPanel from "@/components/ui/enhanced-status-panel";
 import ServerConfigPanel from "@/components/ui/server-config-panel";
 import { MapPin } from "lucide-react";
 
 export default function GpsTracker() {
   const [fastApiBase, setFastApiBase] = useState('http://3.7.100.109:55575');
   const [requestDelay, setRequestDelay] = useState(2000);
+  const [rtmpServer, setRtmpServer] = useState('rtmp://localhost:1935/live');
   const { data, error, isLoading, lastUpdate } = useGpsTracking(fastApiBase, requestDelay);
   const [showError, setShowError] = useState(false);
 
@@ -29,6 +29,10 @@ export default function GpsTracker() {
 
   const handleDelayChange = (newDelay: number) => {
     setRequestDelay(newDelay);
+  };
+
+  const handleRtmpServerChange = (newServer: string) => {
+    setRtmpServer(newServer);
   };
 
   return (
@@ -91,15 +95,18 @@ export default function GpsTracker() {
       <ServerConfigPanel 
         onServerChange={handleServerChange}
         onDelayChange={handleDelayChange}
+        onRtmpServerChange={handleRtmpServerChange}
         currentServer={fastApiBase}
         currentDelay={requestDelay}
+        currentRtmpServer={rtmpServer}
       />
 
-      {/* Status Panel */}
-      <StatusPanel 
+      {/* Enhanced Status Panel */}
+      <EnhancedStatusPanel 
         data={data}
         lastUpdate={lastUpdate}
         connectionStatus={connectionStatus}
+        rtmpUrl={rtmpServer}
       />
 
 
